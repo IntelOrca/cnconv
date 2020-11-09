@@ -1,0 +1,43 @@
+event Ravensbourne v. Bexley (Friendly Jnr.)
+date 17.10.64
+white G. John
+black M. Sanders
+board 2
+
+P-Q4    P-Q4
+P-QB4   P-QB3
+N-QB3   PxP
+P-K3    P-QN4
+N-B3    P-K3
+B-K2    N-B3
+O-O     N-R3
+N-K5    B-Q3
+NxP(B3) Q-B2
+N-K5    O-O
+Q-B2    N-R4
+BxN     P-B3
+N-B3    P-N3
+BxP     PxB
+QxP     Q-KN2
+QxQ     KxQ
+NxP     B-K2
+N-R3    BxN
+PxB     N-B2
+P-R4    N-Q4
+B-R3    R-R1
+QR-B1   N-N3
+B-B5    NxP
+RxP     NxB
+RxN     B-R3
+KR-B1   B-Q6
+R-B7    K-R3
+R-KB7   P-B4
+R-B6    K-R4
+RxP(K6) QR-QB1
+RxR     RxR
+P-KR3   R-B8
+K-R2    R-B7
+N-K5    B-K5
+K-N3    RxRP
+N-B7    R-R8
+R-R6

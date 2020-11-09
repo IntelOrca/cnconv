@@ -1,0 +1,23 @@
+event Cheatles vs. Crowes (Snr. House Chess)
+date 7.2.72
+white G. John
+black M. Uden
+board 1
+
+P-Q4    N-KB3
+P-QB4   P-KN3
+N-KB3   B-N2
+P-K3    O-O
+N-B3    P-Q3
+B-Q3    N-Q2
+P-QN3   P-B4
+B-N2    P-QR3
+O-O     R-K1
+P-Q5    P-K3
+R-N1    PxP
+NxP     P-QN4
+NxN     NxN
+PxP     Q-R4
+P-QR4   PxP
+BxQNP   R-K2
+QxP
