@@ -13,6 +13,7 @@ type PieceState = {
 type GameState = {
     lastState: GameState option
     moveNumber: int
+    halfMoveClock: int
     toMove: Colour
     pieces: PieceState list
 }
@@ -36,43 +37,44 @@ let createPieceState colour piece file rank =
 let getInitialBoard =
     { lastState = None
       moveNumber = 1
+      halfMoveClock = 0
       toMove = White
       pieces = [
-          (createPieceState Black Piece.Rook File.QueenRook Rank.R1)
-          (createPieceState Black Piece.Knight File.QueenKnight Rank.R1)
-          (createPieceState Black Piece.Bishop File.QueenBishop Rank.R1)
-          (createPieceState Black Piece.Queen File.Queen Rank.R1)
-          (createPieceState Black Piece.King File.King Rank.R1)
-          (createPieceState Black Piece.Bishop File.KingBishop Rank.R1)
-          (createPieceState Black Piece.Knight File.KingKnight Rank.R1)
-          (createPieceState Black Piece.Rook File.KingRook Rank.R1)
+          (createPieceState White Piece.Rook File.QueenRook Rank.R1)
+          (createPieceState White Piece.Knight File.QueenKnight Rank.R1)
+          (createPieceState White Piece.Bishop File.QueenBishop Rank.R1)
+          (createPieceState White Piece.Queen File.Queen Rank.R1)
+          (createPieceState White Piece.King File.King Rank.R1)
+          (createPieceState White Piece.Bishop File.KingBishop Rank.R1)
+          (createPieceState White Piece.Knight File.KingKnight Rank.R1)
+          (createPieceState White Piece.Rook File.KingRook Rank.R1)
 
-          (createPieceState Black Piece.Pawn File.QueenRook Rank.R2)
-          (createPieceState Black Piece.Pawn File.QueenKnight Rank.R2)
-          (createPieceState Black Piece.Pawn File.QueenBishop Rank.R2)
-          (createPieceState Black Piece.Pawn File.Queen Rank.R2)
-          (createPieceState Black Piece.Pawn File.King Rank.R2)
-          (createPieceState Black Piece.Pawn File.KingBishop Rank.R2)
-          (createPieceState Black Piece.Pawn File.KingKnight Rank.R2)
-          (createPieceState Black Piece.Pawn File.KingRook Rank.R2)
+          (createPieceState White Piece.Pawn File.QueenRook Rank.R2)
+          (createPieceState White Piece.Pawn File.QueenKnight Rank.R2)
+          (createPieceState White Piece.Pawn File.QueenBishop Rank.R2)
+          (createPieceState White Piece.Pawn File.Queen Rank.R2)
+          (createPieceState White Piece.Pawn File.King Rank.R2)
+          (createPieceState White Piece.Pawn File.KingBishop Rank.R2)
+          (createPieceState White Piece.Pawn File.KingKnight Rank.R2)
+          (createPieceState White Piece.Pawn File.KingRook Rank.R2)
 
-          (createPieceState White Piece.Pawn File.QueenRook Rank.R7)
-          (createPieceState White Piece.Pawn File.QueenKnight Rank.R7)
-          (createPieceState White Piece.Pawn File.QueenBishop Rank.R7)
-          (createPieceState White Piece.Pawn File.Queen Rank.R7)
-          (createPieceState White Piece.Pawn File.King Rank.R7)
-          (createPieceState White Piece.Pawn File.KingBishop Rank.R7)
-          (createPieceState White Piece.Pawn File.KingKnight Rank.R7)
-          (createPieceState White Piece.Pawn File.KingRook Rank.R7)
+          (createPieceState Black Piece.Pawn File.QueenRook Rank.R7)
+          (createPieceState Black Piece.Pawn File.QueenKnight Rank.R7)
+          (createPieceState Black Piece.Pawn File.QueenBishop Rank.R7)
+          (createPieceState Black Piece.Pawn File.Queen Rank.R7)
+          (createPieceState Black Piece.Pawn File.King Rank.R7)
+          (createPieceState Black Piece.Pawn File.KingBishop Rank.R7)
+          (createPieceState Black Piece.Pawn File.KingKnight Rank.R7)
+          (createPieceState Black Piece.Pawn File.KingRook Rank.R7)
 
-          (createPieceState White Piece.Rook File.QueenRook Rank.R8)
-          (createPieceState White Piece.Knight File.QueenKnight Rank.R8)
-          (createPieceState White Piece.Bishop File.QueenBishop Rank.R8)
-          (createPieceState White Piece.Queen File.Queen Rank.R8)
-          (createPieceState White Piece.King File.King Rank.R8)
-          (createPieceState White Piece.Bishop File.KingBishop Rank.R8)
-          (createPieceState White Piece.Knight File.KingKnight Rank.R8)
-          (createPieceState White Piece.Rook File.KingRook Rank.R8)
+          (createPieceState Black Piece.Rook File.QueenRook Rank.R8)
+          (createPieceState Black Piece.Knight File.QueenKnight Rank.R8)
+          (createPieceState Black Piece.Bishop File.QueenBishop Rank.R8)
+          (createPieceState Black Piece.Queen File.Queen Rank.R8)
+          (createPieceState Black Piece.King File.King Rank.R8)
+          (createPieceState Black Piece.Bishop File.KingBishop Rank.R8)
+          (createPieceState Black Piece.Knight File.KingKnight Rank.R8)
+          (createPieceState Black Piece.Rook File.KingRook Rank.R8)
       ]}
 
 let getNextColour = function
@@ -158,8 +160,10 @@ let doMove (move: PossibleMove) (state: GameState): GameState option =
 
     match move with
     | AtoB (a, b) ->
+        let movedPiece = state.pieces |> getPieceAt a
+        let capturedPiece = state.pieces |> getPieceAt b
         let newPieces =
-            match state.pieces |> getPieceAt a with
+            match movedPiece with
             | Some ps ->
                 state.pieces
                 |> removePiece a
@@ -167,10 +171,18 @@ let doMove (move: PossibleMove) (state: GameState): GameState option =
                 |> addPiece { ps with location = b }
                 |> Some
             | None -> None
+
+        let halfMoveClock =
+            match (movedPiece, capturedPiece) with
+            | (Some movedPiece, _) when movedPiece.piece = Piece.Pawn -> 0
+            | (Some movedPiece, Some capturedPiece) -> 0
+            | _ -> state.halfMoveClock + 1
+
         match newPieces with
         | Some pieces ->
             Some { lastState = Some state
                    moveNumber = moveNumber
+                   halfMoveClock = halfMoveClock
                    toMove = toMove
                    pieces = pieces }
         | None -> None
@@ -211,7 +223,7 @@ let getFen (state: GameState): string =
         sb.ToString()
 
     let getRow rank =
-        [ for x in 0..7 do
+        [ for x = 0 to 7 do
               let file = indexToFile x |> Option.get
               let ps =
                   state.pieces
@@ -239,14 +251,14 @@ let getFen (state: GameState): string =
         |> foldSpace
 
     let placement =
-        [| for y in 0..7 do
+        [| for y = 7 downto 0 do
                let rank = indexToRank y |> Option.get
                getRow rank |]
         |> String.concat "/"
     let toMove = if state.toMove = White then "w" else "b"
     let castlingAbility = "KQkq"
     let enpassant = "-"
-    let halfmove = "0"
+    let halfmove = string state.halfMoveClock
     let fullmove = string state.moveNumber
 
     // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
