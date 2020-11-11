@@ -10,18 +10,18 @@ type PieceState = {
     location: Location
 }
 
+type PossibleMove =
+    | AtoB of Location * Location
+    | CastleQueenSide
+    | CastleKingSide
+
 type GameState = {
-    lastState: GameState option
+    previous: (GameState * PossibleMove) option
     moveNumber: int
     halfMoveClock: int
     toMove: Colour
     pieces: PieceState list
 }
-
-type PossibleMove =
-    | AtoB of Location * Location
-    | CastleQueenSide
-    | CastleKingSide
 
 let getNotation (move: PossibleMove) =
     match move with
@@ -35,7 +35,7 @@ let createPieceState colour piece file rank =
       location = (file, rank) }
 
 let getInitialBoard =
-    { lastState = None
+    { previous = None
       moveNumber = 1
       halfMoveClock = 0
       toMove = White
@@ -109,17 +109,41 @@ let getPossibleMoves (state: GameState): PossibleMove list =
                     if isOccupied location then None
                     else Some (AtoB (ps.location, location))
                 | None -> None
+            let forwardTwo =
+                let isInitalPosition =
+                    let rank =
+                        if ps.colour = White then Rank.R2
+                        else Rank.R7
+                    snd ps.location = rank
+                match isInitalPosition, getMoveLocation ps 0 2 with
+                | true, Some location ->
+                    if isOccupied location then None
+                    else Some (AtoB (ps.location, location))
+                | _ -> None
             let diagonal i =
                 match getMoveLocation ps i 1 with
                 | Some location ->
-                    if isTheirs location then None
+                    if isTheirs location then Some (AtoB (ps.location, location))
+                    else None
+                | None -> None
+            [forward; forwardTwo; diagonal -1; diagonal 1]
+            |> List.choose id
+        | Knight ->
+            let offsets = [(-2, -1); (-2, 1); (-1, -2); (-1, 2); (1, -2); (1, 2); (2, -1); (2, 1)]
+            let getMove (x: int, y: int) =
+                match getMoveLocation ps x y with
+                | Some location ->
+                    if isOurs location then None
                     else Some (AtoB (ps.location, location))
                 | None -> None
-            [forward; diagonal -1; diagonal 1]
+
+            offsets
+            |> List.map getMove
             |> List.choose id
         | _ -> []
 
     state.pieces
+    |> List.where (fun x -> x.colour = state.toMove)
     |> List.collect getPossibleMoves
 
 let getPiece (state: GameState) (move: PossibleMove): Piece option =
@@ -180,7 +204,7 @@ let doMove (move: PossibleMove) (state: GameState): GameState option =
 
         match newPieces with
         | Some pieces ->
-            Some { lastState = Some state
+            Some { previous = Some (state, move)
                    moveNumber = moveNumber
                    halfMoveClock = halfMoveClock
                    toMove = toMove
@@ -265,3 +289,71 @@ let getFen (state: GameState): string =
     seq { placement; toMove; castlingAbility; enpassant; halfmove; fullmove }
     |> String.concat " "
 
+let getMoveSourcePieceKind (move: PossibleMove) (state: GameState) =
+    match move with
+    | AtoB (src, dst) ->
+        match getPieceAt src state.pieces with
+        | Some ps -> Some ps.piece
+        | None -> None
+    | _ -> Some Piece.King
+
+let getMoveSourceLocation (move: PossibleMove) (state: GameState) =
+    match move with
+    | AtoB (src, _) -> src
+    | _ -> (File.KingRook, R1)
+
+let getMoveTargetLocation (move: PossibleMove) (state: GameState) =
+    match move with
+    | AtoB (_, dst) -> dst
+    | _ -> (File.KingRook, R1)
+
+let getMoveNotation (move: PossibleMove) (state: GameState) =
+    let srcPiece = getMoveSourcePieceKind move state
+    let srcLocation = getMoveSourceLocation move state
+    let dstLocation = getMoveTargetLocation move state
+    let allPossibleMoves =
+        state
+        |> getPossibleMoves
+        |> List.where (fun x -> getMoveSourcePieceKind x state = srcPiece)
+        |> List.where (fun x -> getMoveTargetLocation x state = dstLocation)
+
+    let getPieceNotation = function
+        | Piece.Pawn -> ""
+        | Piece.Knight -> "N"
+        | Piece.Bishop -> "B"
+        | Piece.Rook -> "R"
+        | Piece.Queen -> "Q"
+        | Piece.King -> "K"
+
+    match (srcPiece, allPossibleMoves) with
+    | Some srcPiece, _ :: [] ->
+        match getPieceAt dstLocation state.pieces with
+        | Some ps when ps.piece = Piece.Pawn -> getNotationForFile (fst srcLocation) + "x" + (getNotationForLocation dstLocation)
+        | Some _ -> (getPieceNotation srcPiece) + "x" + (getNotationForLocation dstLocation)
+        | _ -> (getPieceNotation srcPiece) + (getNotationForLocation dstLocation)
+    | _ ->
+        match move with
+        | AtoB (src, dst) ->
+            let src = getNotationForLocation src
+            let dst = getNotationForLocation dst
+            src + dst
+        | CastleKingSide -> "O-O"
+        | CastleQueenSide -> "O-O-O"
+
+let getPgn (state: GameState): string =
+    let moves = 
+        let rec getMoves moves state =
+            match state.previous with
+            | Some (prev, move) -> getMoves (getMoveNotation move prev :: moves) prev
+            | None -> moves
+        getMoves [] state
+
+    moves
+    |> List.mapi (
+        fun i n ->
+            if i &&& 1 = 0 then
+                let moveNumber = 1 + (i / 2)
+                sprintf "%d. %s" moveNumber n
+            else
+                n)
+    |> String.concat " "

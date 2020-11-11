@@ -77,11 +77,18 @@ let indexToLocation (file, rank) =
     | (Some file, Some rank) -> Some (file, rank)
     | _ -> None
 
-let getNotationForLocation (file, rank) =
+let getNotationForFile file =
     let fi = fileToIndex file
+    int 'a' + fi |> char |> string
+
+let getNotationForRank rank =
     let ri = rankToIndex rank
-    (int 'a' + fi |> char |> string) +
-    (int '0' + ri |> char |> string)
+    int '1' + ri |> char |> string
+
+let getNotationForLocation (file, rank) =
+    let fi = getNotationForFile file
+    let ri = getNotationForRank rank
+    fi + ri
 
 let getLocationFromNotation (notation: string) =
     if notation <> null && notation.Length = 2 then
