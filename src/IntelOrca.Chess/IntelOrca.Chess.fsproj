@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="Types.fs" />
+    <Compile Include="Notation.fs" />
     <Compile Include="Board.fs" />
   </ItemGroup>
 

@@ -148,11 +148,11 @@ let getOldNotation (move: Move) =
         getCharFromPiece move.piece + "x" +
         getStringFromFile file +
         getCharFromPiece p
-    | Capture p ->
+    | Destination.Capture p ->
         getCharFromPiece move.piece + "x" + getCharFromPiece p
-    | CastleKingSide ->
+    | Destination.CastleKingSide ->
         "O-O"
-    | CastleQueenSide ->
+    | Destination.CastleQueenSide ->
         "O-O-O"
 
 let convMove colour (s: string) =
@@ -202,7 +202,7 @@ let convMove colour (s: string) =
                 | Some p ->
                     Some { colour = colour
                            piece = piece
-                           destination = Capture p }
+                           destination = Destination.Capture p }
                 | None -> None
             | _ -> None
         | None -> None

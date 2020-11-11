@@ -27,6 +27,28 @@ type Game = {
     moves: Move list
 }
 
+type CastleKind =
+    | KingSide
+    | QueenSide
+
+type MoveDescriptorFile =
+    | Specifc of File
+    | AnyKnight
+    | AnyBishop
+    | AnyRook
+    | Any
+
+type MoveDescriptorEntity = {
+    piece: Piece option
+    file: MoveDescriptorFile
+    rank: Rank option
+}
+
+type MoveDescriptor =
+    | Move of MoveDescriptorEntity * MoveDescriptorEntity
+    | Capture of MoveDescriptorEntity * MoveDescriptorEntity
+    | Castle of CastleKind
+
 let rankToIndex = function
     | R1 -> 0
     | R2 -> 1
