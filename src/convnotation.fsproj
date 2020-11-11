@@ -6,9 +6,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Types.fs" />
-    <Compile Include="Analyse.fs" />
     <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="IntelOrca.Chess\IntelOrca.Chess.fsproj" />
   </ItemGroup>
 
 </Project>

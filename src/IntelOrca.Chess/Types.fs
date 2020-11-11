@@ -1,4 +1,4 @@
-module IntelOrca.ChessNotationConv.Types
+module IntelOrca.Chess.Types
 
 open System
 
@@ -82,3 +82,17 @@ let getNotationForLocation (file, rank) =
     let ri = rankToIndex rank
     (int 'a' + fi |> char |> string) +
     (int '0' + ri |> char |> string)
+
+let getLocationFromNotation (notation: string) =
+    if notation <> null && notation.Length = 2 then
+        let f = notation.[0]
+        let r = notation.[1]
+        if f >= 'a' && f <= 'h' && r >= '1' && r <= '8' then
+            let file = indexToFile (int f - int 'a') |> Option.get
+            let rank = indexToRank (int r - int '1') |> Option.get
+            Some (file, rank)
+        else
+            None
+    else
+        None
+

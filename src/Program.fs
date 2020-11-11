@@ -1,9 +1,9 @@
-module IntelOrca.ChessNotationConv.Program
+module IntelOrca.Chess.convnotation
 
 open System
 open System.Text.RegularExpressions
 open System.IO
-open Analyse
+open Board
 open Types
 
 let pieceFromChar = function
@@ -338,6 +338,13 @@ let main argv =
         let state =
             getInitialBoard
             |> doMoveWithOld firstMove
+
+        match state with
+        | Some state ->
+            let fen = state |> getFen
+            printfn "%s" fen
+        | None ->
+            printfn "error"
         // let moves =
         //     getPossibleMoves state
         //     |> List.map getNotation
