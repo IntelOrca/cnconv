@@ -101,8 +101,28 @@ let getPossibleMoves (state: GameState): PossibleMove list =
         indexToLocation (oldX + x, oldY + y)
 
     let getPossibleMoves (ps: PieceState): PossibleMove list =
+        let followPath offsetX offsetY =
+            let rec followPath locations x y =
+                match getMoveLocation ps x y with
+                | Some location ->
+                    if isOurs location then
+                        locations
+                    elif isTheirs location then
+                        location :: locations
+                    else
+                        followPath (location :: locations) (x + offsetX) (y + offsetY)
+                | None -> locations
+            followPath [] offsetX offsetY
+
+        let getMove (x: int, y: int) =
+            match getMoveLocation ps x y with
+            | Some location ->
+                if isOurs location then None
+                else Some (AtoB (ps.location, location))
+            | None -> None
+
         match ps.piece with
-        | Pawn ->
+        | Piece.Pawn ->
             let forward =
                 match getMoveLocation ps 0 1 with
                 | Some location ->
@@ -128,19 +148,29 @@ let getPossibleMoves (state: GameState): PossibleMove list =
                 | None -> None
             [forward; forwardTwo; diagonal -1; diagonal 1]
             |> List.choose id
-        | Knight ->
-            let offsets = [(-2, -1); (-2, 1); (-1, -2); (-1, 2); (1, -2); (1, 2); (2, -1); (2, 1)]
-            let getMove (x: int, y: int) =
-                match getMoveLocation ps x y with
-                | Some location ->
-                    if isOurs location then None
-                    else Some (AtoB (ps.location, location))
-                | None -> None
-
-            offsets
+        | Piece.Knight ->
+            [(-2, -1); (-2, 1); (-1, -2); (-1, 2); (1, -2); (1, 2); (2, -1); (2, 1)]
             |> List.map getMove
             |> List.choose id
-        | _ -> []
+        | Piece.Bishop ->
+            [followPath -1 -1; followPath 1 1; followPath 1 -1; followPath -1 1]
+            |> List.collect id
+            |> List.map (fun x -> AtoB (ps.location, x))
+        | Piece.Rook ->
+            [followPath -1 0; followPath 1 0; followPath 0 -1; followPath 0 1]
+            |> List.collect id
+            |> List.map (fun x -> AtoB (ps.location, x))
+        | Piece.Queen ->
+            [followPath -1 0; followPath 1 0; followPath 0 -1; followPath 0 1;
+             followPath -1 -1; followPath 1 1; followPath 1 -1; followPath -1 1]
+            |> List.collect id
+            |> List.map (fun x -> AtoB (ps.location, x))
+        | Piece.King ->
+            [(-1, -1); (0, -1); (1, -1);
+             (-1,  0);          (1,  0);
+             (-1,  1); (0,  1); (1,  1)]
+            |> List.map getMove
+            |> List.choose id
 
     state.pieces
     |> List.where (fun x -> x.colour = state.toMove)
