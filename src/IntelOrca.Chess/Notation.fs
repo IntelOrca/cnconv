@@ -2,16 +2,9 @@
 
 open Types
 
-// Kinds of notation to parse:
-//   e2         PxP
-//   e2e4       QxP
-//   Nc3        QR-B1
-//   Bxf6       N-R3
-//   gxf6       Q-KN2
-//   Nbd2       NxP(B3)
-//   dxc4
-//   O-O
-//   O-O-O
+type NotationKind =
+    | Classic
+    | Modern
 
 module MoveDescriptorEntity =
     let fromPiece piece =
@@ -22,6 +15,16 @@ module MoveDescriptorEntity =
     let fromLocation (file, rank) =
         { piece = None
           file = MoveDescriptorFile.Specifc file
+          rank = Some rank }
+
+    let fromFile file =
+        { piece = None
+          file = file
+          rank = None }
+
+    let fromFileRank (file, rank) =
+        { piece = None
+          file = file
           rank = Some rank }
 
 module MoveDescriptor =
@@ -37,16 +40,14 @@ module MoveDescriptor =
     let pieceTakesPiece a b =
         MoveDescriptor.Capture (MoveDescriptorEntity.fromPiece a, MoveDescriptorEntity.fromPiece b)
 
-let parseMove (s: string): MoveDescriptor option =
+let parseNotation (kind: NotationKind) (s: string): MoveDescriptor option =
     // Parse helpers:
-    let (|Castle|_|) c =
-        match c with
+    let (|Castle|_|) = function
         | ['O'; '-'; 'O'] -> Some CastleKind.KingSide
         | ['O'; '-'; 'O'; '-'; 'O'] -> Some CastleKind.QueenSide
         | _ -> None
 
-    let (|File|_|) c =
-        match c with
+    let (|File|_|) = function
         | 'a' -> Some File.QueenRook
         | 'b' -> Some File.QueenKnight
         | 'c' -> Some File.QueenBishop
@@ -57,8 +58,7 @@ let parseMove (s: string): MoveDescriptor option =
         | 'h' -> Some File.KingRook
         | _ -> None
 
-    let (|Rank|_|) r =
-        match r with
+    let (|Rank|_|) = function
         | '1' -> Some R1
         | '2' -> Some R2
         | '3' -> Some R3
@@ -69,44 +69,108 @@ let parseMove (s: string): MoveDescriptor option =
         | '8' -> Some R8
         | _ -> None
 
-    let (|Location|_|) chars =
-        match chars with
-        | (File f) :: (Rank r) :: tail -> Some ((f, r), tail)
+    let (|Piece|_|) = function
+        | 'P' -> Some Piece.Pawn
+        | 'N' -> Some Piece.Knight
+        | 'B' -> Some Piece.Bishop
+        | 'R' -> Some Piece.Rook
+        | 'Q' -> Some Piece.Queen
+        | 'K' -> Some Piece.King
         | _ -> None
 
-    let (|Piece|_|) c =
-        match c with
-        | 'P' :: tail -> Some (Piece.Pawn, tail)
-        | 'N' :: tail -> Some (Piece.Knight, tail)
-        | 'B' :: tail -> Some (Piece.Bishop, tail)
-        | 'R' :: tail -> Some (Piece.Rook, tail)
-        | 'Q' :: tail -> Some (Piece.Queen, tail)
-        | 'K' :: tail -> Some (Piece.King, tail)
+    let (|Cross|_|) = function
+        | 'x' :: tail -> Some tail
+        | _ -> None
+
+    let (|Hyphen|_|) = function
+        | '-' :: tail -> Some tail
         | _ -> None
 
     // Parser:
-    let rec parseMove chars =
+    let parseClassic chars =
+        let (|LeftComponent|_|) = function
+            | 'Q' :: 'R' :: tail ->
+                Some ({ piece = Some Piece.Rook
+                        file = MoveDescriptorFile.Specifc QueenRook
+                        rank = None }, tail)
+            | Piece piece :: tail -> Some (MoveDescriptorEntity.fromPiece piece, tail)
+            | _ -> None
+
+        let (|RightComponent|_|) = function
+            | 'K' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromLocation (File.King, r), tail)
+            | 'K' :: 'R' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromLocation (File.KingRook, r), tail)
+            | 'K' :: 'B' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromLocation (File.KingBishop, r), tail)
+            | 'K' :: 'N' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromLocation (File.KingKnight, r), tail)
+            | 'Q' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromLocation (File.Queen, r), tail)
+            | 'Q' :: 'R' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromLocation (File.QueenRook, r), tail)
+            | 'Q' :: 'B' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromLocation (File.QueenBishop, r), tail)
+            | 'Q' :: 'N' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromLocation (File.QueenKnight, r), tail)
+            | 'R' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromFileRank (MoveDescriptorFile.AnyRook, r), tail)
+            | 'B' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromFileRank (MoveDescriptorFile.AnyBishop, r), tail)
+            | 'N' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromFileRank (MoveDescriptorFile.AnyKnight, r), tail)
+            | Piece piece :: tail -> Some (MoveDescriptorEntity.fromPiece piece, tail)
+            | _ -> None
+
         match chars with
         | Castle kind -> Some (MoveDescriptor.fromCastleKind kind)
-        | Location (location, tail) ->
-            match tail with
-            | [] -> Some (MoveDescriptor.pieceToLocation Piece.Pawn location)
-            | Location (location2, []) -> Some (MoveDescriptor.locationToLocation location location2)
-            | _ -> None
-        | Piece (p1, tail) ->
-            match tail with
-            | 'x' :: tail ->
+        | LeftComponent (c1, chars) ->
+            match chars with
+            | Cross chars ->
                 // Capture
-                match tail with
-                | Piece (p2, []) ->
-                    Some (MoveDescriptor.pieceTakesPiece p1 p2)
+                match chars with
+                | RightComponent (c2, _) -> Some (MoveDescriptor.Capture (c1, c2))
                 | _ -> None
-            | '-' :: tail ->
+            | Hyphen chars ->
                 // Move
-                None
+                match chars with
+                | RightComponent (c2, _) -> Some (MoveDescriptor.Move (c1, c2))
+                | _ -> None
             | _ -> None
         | _ -> None
 
-    s.ToCharArray()
-    |> Array.toList
-    |> parseMove
+    let parseModern chars =
+        let (|Location|_|) = function
+            | (File f) :: (Rank r) :: tail -> Some ((f, r), tail)
+            | _ -> None
+
+        let rec (|Component|_|) = function
+            | Location (location, tail) ->
+                Some (MoveDescriptorEntity.fromLocation location, tail)
+            | File f :: tail ->
+                Some (MoveDescriptorEntity.fromFile (MoveDescriptorFile.Specifc f), tail)
+            | Piece piece :: tail ->
+                match tail with
+                | File _ :: Component (_, _) ->
+                    match tail with
+                    | File f :: tail ->
+                        Some ({ piece = Some piece
+                                file = MoveDescriptorFile.Specifc f
+                                rank = None }, tail)
+                    | _ -> None
+                | _ -> Some (MoveDescriptorEntity.fromPiece piece, tail)
+            | _ -> None
+
+        match chars with
+        | Castle kind -> Some (MoveDescriptor.fromCastleKind kind)
+        | Component (c1, chars) ->
+            match chars with
+            | Component (c2, _) ->
+                // Move
+                Some (MoveDescriptor.Move (c1, c2))
+            | Cross chars ->
+                // Capture
+                match chars with
+                | Component (c2, _) -> Some (MoveDescriptor.Capture (c1, c2))
+                | _ -> None
+            | [] ->
+                // Pawn move (e.g. e4)
+                Some (MoveDescriptor.Move (MoveDescriptorEntity.fromPiece Piece.Pawn, c1))
+            | _ -> None
+        | _ -> None
+
+    let chars =
+        s.ToCharArray()
+        |> Array.toList
+    match kind with
+    | Classic -> parseClassic chars
+    | Modern -> parseModern chars
