@@ -57,8 +57,9 @@ type PgnTag = string * string
 
 type PgnElement =
     | MoveNumber of int
-    | Notation of string
+    | Notation of MoveDescriptor
     | Comment of string
+    | Unknown of string
 
 type Pgn = {
     tags: PgnTag list

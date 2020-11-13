@@ -3,16 +3,24 @@ namespace IntelOrca.Chess.Tests
 open System
 open IntelOrca.Chess.Types
 open IntelOrca.Chess.Board
+open IntelOrca.Chess.Notation
 open Xunit
 
 type GameStateTests() =
+    let parseFQM (notation: string) =
+        if notation = "O-O" then Castle (KingSide)
+        elif notation = "O-O-O" then Castle (QueenSide)
+        else
+            let src = notation.Substring(0, 2)
+            let dst = notation.Substring(2, 2)
+            let src = getLocationFromNotation src |> Option.get
+            let dst = getLocationFromNotation dst |> Option.get
+            AtoB (src, dst)
+
     let move (notation: string) (state: GameState) =
-        let src = notation.Substring(0, 2)
-        let dst = notation.Substring(2, 2)
-        let src = getLocationFromNotation src |> Option.get
-        let dst = getLocationFromNotation dst |> Option.get
+        let fqm = parseFQM notation
         state
-        |> doMove (AtoB (src, dst))
+        |> doMove fqm
         |> Option.get
 
     let assertFen (expected: string) (state: GameState) =
@@ -61,3 +69,15 @@ type GameStateTests() =
         |> move "d5c4"
         |> assertFen "rnbqkbnr/ppp1pppp/8/8/2pP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3"
         |> assertPgn "1. d4 d5 2. c4 dxc4"
+
+    let assertDeriveMove s expected state =
+        let md =
+            parseNotation Modern s
+            |> Option.get
+        let expectedMove = parseFQM expected
+        let move = deriveMove md state
+        Assert.Equal(Some expectedMove, move)
+
+    [<Fact>]
+    let ``deriveMove e4`` () =
+        assertDeriveMove "e4" "e2e4" getInitialBoard

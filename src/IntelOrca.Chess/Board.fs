@@ -12,8 +12,14 @@ type PieceState = {
 
 type PossibleMove =
     | AtoB of Location * Location
-    | CastleQueenSide
-    | CastleKingSide
+    | Castle of CastleKind
+
+type CastleAvailability = {
+    whiteKing: bool
+    whiteQueen: bool
+    blackKing: bool
+    blackQueen: bool
+}
 
 type GameState = {
     previous: (GameState * PossibleMove) option
@@ -21,13 +27,83 @@ type GameState = {
     halfMoveClock: int
     toMove: Colour
     pieces: PieceState list
+    castleAvailability: CastleAvailability
 }
+
+let getFen (state: GameState): string =
+    let foldSpace (chars: char list) =
+        let sb = new StringBuilder()
+        let append (c: char) = sb.Append(c) |> ignore
+        let appendAcc acc = if acc <> 0 then sb.Append(acc) |> ignore
+        let rec foldSpace (acc: int) (chars: char list) =
+            match chars with
+            | ' ' :: tail ->
+                foldSpace (1 + acc) tail
+            | head :: tail ->
+                appendAcc acc
+                append head
+                foldSpace 0 tail
+            | [] ->
+                appendAcc acc
+        foldSpace 0 chars
+        sb.ToString()
+
+    let getRow rank =
+        [ for x = 0 to 7 do
+              let file = indexToFile x |> Option.get
+              let ps =
+                  state.pieces
+                  |> List.tryFind (fun x -> x.location = (file, rank))
+              match ps with
+              | Some ps ->
+                  match ps.colour with
+                  | White ->
+                      match ps.piece with
+                      | Piece.Pawn -> 'P'
+                      | Piece.Knight -> 'N'
+                      | Piece.Bishop -> 'B'
+                      | Piece.Rook -> 'R'
+                      | Piece.Queen -> 'Q'
+                      | Piece.King -> 'K'
+                  | Black ->
+                      match ps.piece with
+                      | Piece.Pawn -> 'p'
+                      | Piece.Knight -> 'n'
+                      | Piece.Bishop -> 'b'
+                      | Piece.Rook -> 'r'
+                      | Piece.Queen -> 'q'
+                      | Piece.King -> 'k'
+              | None -> ' ' ]
+        |> foldSpace
+
+    let placement =
+        [| for y = 7 downto 0 do
+               let rank = indexToRank y |> Option.get
+               getRow rank |]
+        |> String.concat "/"
+    let toMove = if state.toMove = White then "w" else "b"
+    let castlingAbility =
+        let ca = state.castleAvailability
+        let s =
+            [if ca.whiteKing then "K" else ""
+             if ca.whiteQueen then "Q" else ""
+             if ca.blackKing then "k" else ""
+             if ca.blackQueen then "q" else ""]
+            |> String.concat ""
+        if s = "" then "-" else s
+    let enpassant = "-"
+    let halfmove = string state.halfMoveClock
+    let fullmove = string state.moveNumber
+
+    // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+    seq { placement; toMove; castlingAbility; enpassant; halfmove; fullmove }
+    |> String.concat " "
 
 let getNotation (move: PossibleMove) =
     match move with
     | AtoB (a, b) -> (getNotationForLocation a) + (getNotationForLocation b)
-    | CastleQueenSide -> "O-O"
-    | CastleKingSide -> "O-O-O"
+    | Castle (KingSide) -> "O-O"
+    | Castle (QueenSide) -> "O-O-O"
 
 let createPieceState colour piece file rank =
     { colour = colour
@@ -39,6 +115,12 @@ let getInitialBoard =
       moveNumber = 1
       halfMoveClock = 0
       toMove = White
+      castleAvailability = {
+          whiteKing = true
+          whiteQueen = true
+          blackKing = true
+          blackQueen = true
+      }
       pieces = [
           (createPieceState White Piece.Rook File.QueenRook Rank.R1)
           (createPieceState White Piece.Knight File.QueenKnight Rank.R1)
@@ -187,6 +269,11 @@ let getPiece (state: GameState) (move: PossibleMove): Piece option =
         | None -> None
     | _ -> Some Piece.King
 
+let getSource (move: PossibleMove) =
+    match move with
+    | AtoB (a, _) -> a
+    | _ -> (File.QueenRook, R1)
+
 let getDestination (move: PossibleMove) =
     match move with
     | AtoB (_, b) -> b
@@ -201,6 +288,21 @@ let removePiece location pieces =
     |> List.where (fun x -> x.location <> location)
 
 let addPiece ps pieces = ps :: pieces
+
+let castlePieces kind colour pieces =
+    let (cornerFile, kingFile, rookFile) =
+        match kind with
+        | CastleKind.KingSide -> (File.KingRook, File.KingKnight, File.KingBishop)
+        | CastleKind.QueenSide -> (File.QueenRook, File.QueenBishop, File.Queen)
+    let rank =
+        match colour with
+        | White -> R1
+        | Black -> R8
+    pieces
+    |> removePiece (cornerFile, rank)
+    |> removePiece (File.King, rank)
+    |> addPiece { colour = colour; piece = Piece.King; location = (kingFile, rank) }
+    |> addPiece { colour = colour; piece = Piece.Rook; location = (rookFile, rank) }
 
 let doMove (move: PossibleMove) (state: GameState): GameState option =
     let toMove =
@@ -238,10 +340,77 @@ let doMove (move: PossibleMove) (state: GameState): GameState option =
                    moveNumber = moveNumber
                    halfMoveClock = halfMoveClock
                    toMove = toMove
-                   pieces = pieces }
+                   pieces = pieces
+                   castleAvailability = state.castleAvailability }
         | None -> None
-    | CastleQueenSide -> None
-    | CastleKingSide -> None
+    | Castle kind ->
+        let newPieces = castlePieces kind state.toMove state.pieces
+        let castleAvailability =
+            match state.toMove with
+            | White ->
+                { state.castleAvailability with
+                    whiteKing = false 
+                    whiteQueen = false }
+            | Black ->
+                { state.castleAvailability with
+                    blackKing = false 
+                    blackQueen = false }
+        Some { previous = Some (state, move)
+               moveNumber = moveNumber
+               halfMoveClock = state.halfMoveClock + 1
+               toMove = toMove
+               pieces = newPieces
+               castleAvailability = castleAvailability }
+
+/// Convert a move descriptor to a fully qualified move based on the given game state.
+let deriveMove (move: MoveDescriptor) (state: GameState): PossibleMove option =
+    let possibleMoves = getPossibleMoves state
+
+    let filterMoves filters =
+        let folder moves filter =
+            moves
+            |> List.where (fun move -> filter move)
+        List.fold folder possibleMoves filters
+
+    let result =
+        match move with
+        | Move (a, b)
+        | Capture (a, b) ->
+            let pieceFilter m =
+                match a.piece with
+                | Some piece -> Some piece = getPiece state m
+                | None -> true
+            let sourceFileFilter m =
+                match a.file with
+                | MoveDescriptorFile.Specifc file -> file = fst (getSource m)
+                | _ -> true
+            let destinationFilter m =
+                match (b.file, b.rank) with
+                | (Specifc file, Some rank) -> (file, rank) = getDestination m
+                | _ -> true
+
+            let remainingMoves =
+                let filters = [pieceFilter; sourceFileFilter; destinationFilter]
+                filterMoves filters
+
+            if List.length remainingMoves <> 1 then
+                printfn "%s" "wtf"
+
+            remainingMoves
+            |> List.tryExactlyOne
+        | MoveDescriptor.Castle kind ->
+            Some (Castle kind)
+    result
+
+let doMoves (moves: MoveDescriptor list) (state: GameState) =
+    let fn state move =
+        match state with
+        | Some state ->
+            match deriveMove move state with
+            | Some derivedMove -> doMove derivedMove state
+            | None -> None
+        | None -> None
+    List.fold fn (Some state) moves
 
 let doMoveWithOld (move: Move) (state: GameState) =
     let possibleMoves =
@@ -257,67 +426,6 @@ let doMoveWithOld (move: Move) (state: GameState) =
         | Some move -> doMove move state
         | None -> None
     | _ -> None
-
-let getFen (state: GameState): string =
-    let foldSpace (chars: char list) =
-        let sb = new StringBuilder()
-        let append (c: char) = sb.Append(c) |> ignore
-        let appendAcc acc = if acc <> 0 then sb.Append(acc) |> ignore
-        let rec foldSpace (acc: int) (chars: char list) =
-            match chars with
-            | ' ' :: tail ->
-                foldSpace (1 + acc) tail
-            | head :: tail ->
-                appendAcc acc
-                append head
-                foldSpace 0 tail
-            | [] ->
-                appendAcc acc
-        foldSpace 0 chars
-        sb.ToString()
-
-    let getRow rank =
-        [ for x = 0 to 7 do
-              let file = indexToFile x |> Option.get
-              let ps =
-                  state.pieces
-                  |> getPieceAt (file, rank)
-              match ps with
-              | Some ps ->
-                  match ps.colour with
-                  | White ->
-                      match ps.piece with
-                      | Piece.Pawn -> 'P'
-                      | Piece.Knight -> 'N'
-                      | Piece.Bishop -> 'B'
-                      | Piece.Rook -> 'R'
-                      | Piece.Queen -> 'Q'
-                      | Piece.King -> 'K'
-                  | Black ->
-                      match ps.piece with
-                      | Piece.Pawn -> 'p'
-                      | Piece.Knight -> 'n'
-                      | Piece.Bishop -> 'b'
-                      | Piece.Rook -> 'r'
-                      | Piece.Queen -> 'q'
-                      | Piece.King -> 'k'
-              | None -> ' ' ]
-        |> foldSpace
-
-    let placement =
-        [| for y = 7 downto 0 do
-               let rank = indexToRank y |> Option.get
-               getRow rank |]
-        |> String.concat "/"
-    let toMove = if state.toMove = White then "w" else "b"
-    let castlingAbility = "KQkq"
-    let enpassant = "-"
-    let halfmove = string state.halfMoveClock
-    let fullmove = string state.moveNumber
-
-    // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
-    seq { placement; toMove; castlingAbility; enpassant; halfmove; fullmove }
-    |> String.concat " "
 
 let getMoveSourcePieceKind (move: PossibleMove) (state: GameState) =
     match move with
@@ -367,8 +475,8 @@ let getMoveNotation (move: PossibleMove) (state: GameState) =
             let src = getNotationForLocation src
             let dst = getNotationForLocation dst
             src + dst
-        | CastleKingSide -> "O-O"
-        | CastleQueenSide -> "O-O-O"
+        | Castle (KingSide) -> "O-O"
+        | Castle (QueenSide) -> "O-O-O"
 
 let getPgn (state: GameState): string =
     let moves = 

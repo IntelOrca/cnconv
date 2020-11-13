@@ -187,6 +187,7 @@ type TokenKind =
     | Text of string
     | NumberDot of int
     | QuotedLiteral of string
+    | BracketLiteral of string
     | BracedLiteral of string
     | Whitespace
     | NewLine
@@ -277,6 +278,12 @@ module Pgn =
             | BadMatch err -> BadMatch err
             | NoMatch -> NoMatch
 
+        let parseBracketLiteral chars =
+            match parseLiteral '(' ')' chars with
+            | Match (result, tail) -> Match (BracketLiteral result, tail)
+            | BadMatch err -> BadMatch err
+            | NoMatch -> NoMatch
+
         let parseBracedLiteral chars =
             match parseLiteral '{' '}' chars with
             | Match (result, tail) -> Match (BracedLiteral result, tail)
@@ -307,6 +314,7 @@ module Pgn =
                     parseChar '[' OpenTag
                     parseChar ']' CloseTag
                     parseQuotedLiteral
+                    parseBracketLiteral
                     parseBracedLiteral
                     parseMoveNumber
                     parseText] chars
@@ -338,15 +346,29 @@ module Pgn =
                 | NoMatch -> Match(tags, chars)
             parseTags [] chars
 
+        let parseTextElement (text: string) =
+            if text.Length > 0 && isDigit text.[0] then
+                // Probably win/lose marker
+                NoMatch
+            else
+                let trimmed = text.TrimEnd('#', '+', '!', '?')
+                match parseNotation Modern trimmed with
+                | Some md -> Match (Notation md, [])
+                | None -> BadMatch ("Unable to parse move notation: " + text)
+
         let parseElements chars =
             let rec parseMoves elements chars =
                 match parseToken chars with
+                | Match (BracketLiteral text, tail)
                 | Match (BracedLiteral text, tail) ->
                     parseMoves (Comment text :: elements) tail
                 | Match (NumberDot n, tail) ->
                     parseMoves (MoveNumber n :: elements) tail
                 | Match (Text text, tail) ->
-                    parseMoves (Notation text :: elements) tail
+                    match parseTextElement text with
+                    | Match (x, _) -> parseMoves (x :: elements) tail
+                    | BadMatch err -> BadMatch err
+                    | NoMatch -> parseMoves (Unknown text :: elements) tail
                 | BadMatch err -> BadMatch err
                 | NoMatch -> Match (List.rev elements, chars)
                 | _ -> BadMatch "Unexpected token"
@@ -378,20 +400,11 @@ module Pgn =
         | Some (_, value) -> Some value
         | None -> None
 
-    let getMoves (pgn: Pgn): MoveDescriptor list option =
+    let getMoves (pgn: Pgn): MoveDescriptor list =
         let getNotation el =
             match el with
             | Notation n -> Some n
             | _ -> None
 
-        let moves =
-            pgn.elements
-            |> List.choose getNotation
-            |> List.map (parseNotation Modern)
-        let goodMoves =
-            moves
-            |> List.choose id
-        if List.length moves = List.length goodMoves then
-            Some goodMoves
-        else
-            None
+        pgn.elements
+        |> List.choose getNotation

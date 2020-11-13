@@ -1,6 +1,7 @@
 ﻿namespace IntelOrca.Chess.Tests
 
 open IntelOrca.Chess.Types
+open IntelOrca.Chess.Board
 open IntelOrca.Chess.Notation
 open Xunit
 
@@ -15,7 +16,10 @@ type PgnTests() =
         pgn
 
     let assertFen fen pgn =
-        pgn
+        getInitialBoard
+        |> doMoves (Pgn.getMoves pgn)
+        |> Option.get
+        |> getFen
 
     [<Fact>]
     let ``Fischer vs Spassky`` () =
@@ -81,3 +85,4 @@ type PgnTests() =
         parsePgn pgn
         |> assertTag "White" "coffeecoder"
         |> assertTag "Black" "ElvinDrude"
+        |> assertFen "r2q1brN/1p1nkQ2/p3p2p/3p4/4bB2/2P1P3/PP3PPP/R3K2R b KQ - 4 17"
