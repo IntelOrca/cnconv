@@ -49,6 +49,26 @@ type MoveDescriptor =
     | Capture of MoveDescriptorEntity * MoveDescriptorEntity
     | Castle of CastleKind
 
+//
+// --------- PGN --------- 
+//
+
+type PgnTag = string * string
+
+type PgnElement =
+    | MoveNumber of int
+    | Notation of string
+    | Comment of string
+
+type Pgn = {
+    tags: PgnTag list
+    elements: PgnElement list
+}
+
+//
+// --------- Helpers --------- 
+//
+
 let rankToIndex = function
     | R1 -> 0
     | R2 -> 1
