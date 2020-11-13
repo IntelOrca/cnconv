@@ -5,11 +5,17 @@ open IntelOrca.Chess.Notation
 open Xunit
 
 type PgnTests() =
-    let assertPgn fen pgn =
-        match parsePgn pgn with
-        | Ok pgn ->
-            Assert.True(true);
+    let parsePgn pgn =
+        match Pgn.parse pgn with
+        | Ok pgn -> pgn
         | Error err -> failwith err
+
+    let assertTag key expectedValue pgn =
+        Assert.Equal(Pgn.getTag key pgn, Some expectedValue)
+        pgn
+
+    let assertFen fen pgn =
+        pgn
 
     [<Fact>]
     let ``Fischer vs Spassky`` () =
@@ -31,7 +37,15 @@ type PgnTests() =
             35. Ra7 g6 36. Ra6+ Kc5 37. Ke1 Nf4 38. g3 Nxh3 39. Kd2 Kb5 40. Rd6 Kc5 41. Ra6
             Nf2 42. g4 Bd3 43. Re6 1/2-1/2"
 
-        assertPgn "8/8/4R1p1/2k3p1/1p4P1/1P1b1P2/3K1n2/8 b - - 2 43" pgn
+        parsePgn pgn
+        |> assertTag "Event" "F/S Return Match"
+        |> assertTag "Site" "Belgrade, Serbia JUG"
+        |> assertTag "Date" "1992.11.04"
+        |> assertTag "Round" "29"
+        |> assertTag "White" "Fischer, Robert J."
+        |> assertTag "Black" "Spassky, Boris V."
+        |> assertTag "Result" "1/2-1/2"
+        |> assertFen "8/8/4R1p1/2k3p1/1p4P1/1P1b1P2/3K1n2/8 b - - 2 43"
 
     [<Fact>]
     let ``Ted vs Alex`` () =
@@ -62,6 +76,8 @@ type PgnTests() =
             15. Nxg6? { (-3.42 → -6.25) Mistake. Qe2 was best. } (15. Qe2 Bg7) 15... Rg8?? { (-6.25 → 0.00) Blunder. Nf6 was best. } (15... Nf6 16. Qh3 Bxg6 17. Qxe6+ Qe7
             18. Qb6 Rd8 19. O-O Bg7 20. Rad1 O-O 21. Bg3 Rc8 22. Rfe1) 16. Nh8+? { (0.00 → -1.07) Mistake. Nxf8+ was best. } (16. Nxf8+ Kxf8 17. Bxh6+ Ke7 18. Bg5+ Nf6
             19. f3 Qb6 20. Bxf6+ Kxf6 21. fxe4 Qxe3+ 22. Qe2 Qxe2+) 16... Ke7?? { (-1.07 → Mate in 1) Checkmate is now unavoidable. Bg6 was best. } (16... Bg6 17. Nxg6 Nf6 18. Qe5 Rxg6
-            19. Qxe6+ Qe7 20. Qxe7+ Bxe7 21. O-O Kf7 22. Rad1 Ke6 23. g3) 17. Qf7# { White wins by checkmate. } 1-0
-            "
-        assertPgn "" pgn
+            19. Qxe6+ Qe7 20. Qxe7+ Bxe7 21. O-O Kf7 22. Rad1 Ke6 23. g3) 17. Qf7# { White wins by checkmate. } 1-0"
+
+        parsePgn pgn
+        |> assertTag "White" "coffeecoder"
+        |> assertTag "Black" "ElvinDrude"

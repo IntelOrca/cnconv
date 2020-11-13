@@ -191,185 +191,193 @@ type TokenKind =
     | Whitespace
     | NewLine
 
-let parsePgn (pgn: string) =
-    let isDigit ch = System.Char.IsDigit(ch)
+module Pgn =
+    let parse (pgn: string) =
+        let isDigit ch = System.Char.IsDigit(ch)
 
-    let isWhitespace ch =
-        match ch with
-        | '\r'| '\n' -> false
-        | ch when System.Char.IsWhiteSpace(ch) -> true
-        | _ -> false
+        let isWhitespace ch =
+            match ch with
+            | '\r'| '\n' -> false
+            | ch when System.Char.IsWhiteSpace(ch) -> true
+            | _ -> false
 
-    let isWhitespaceOrNewLine ch =
-        match ch with
-        | '\r'| '\n' -> true
-        | ch when System.Char.IsWhiteSpace(ch) -> true
-        | _ -> false
+        let isWhitespaceOrNewLine ch =
+            match ch with
+            | '\r'| '\n' -> true
+            | ch when System.Char.IsWhiteSpace(ch) -> true
+            | _ -> false
 
-    let parseWhitespace chars =
-        let rec parseWhitespace c chars =
+        let parseWhitespace chars =
+            let rec parseWhitespace c chars =
+                match chars with
+                | head :: tail when isWhitespace head -> parseWhitespace (c + 1) tail
+                | tail ->
+                    if c <> 0 then Match (Whitespace, tail)
+                    else NoMatch
+            parseWhitespace 0 chars
+
+        let parseNewLine chars =
             match chars with
-            | head :: tail when isWhitespace head -> parseWhitespace (c + 1) tail
-            | tail ->
-                if c <> 0 then Match (Whitespace, tail)
-                else NoMatch
-        parseWhitespace 0 chars
-
-    let parseNewLine chars =
-        match chars with
-        | '\r' :: '\n' :: tail
-        | '\r' :: tail
-        | '\n' :: tail -> Match (NewLine, tail)
-        | _ -> NoMatch
-
-    let parseText chars =
-        let sb = new StringBuilder()
-        let rec build chars =
-            match chars with
-            | head :: tail when not (isWhitespaceOrNewLine head) ->
-                sb.Append(head) |> ignore
-                build tail
-            | tail ->
-                if sb.Length = 0 then NoMatch
-                else Match (Text (sb.ToString()), tail)
-        build chars
-
-    let parseMoveNumber =
-        let digitsToInt digits =
-            let charToDigit ch = (int ch) - (int '0')
-            let rec digitsToInt num digits =
-                match digits with
-                | head :: tail -> digitsToInt ((num * 10) + charToDigit head) tail
-                | [] -> num
-            digitsToInt 0 (List.rev digits)
-
-        let rec parseMoveNumber digits chars =
-            match chars with
-            | head :: tail when isDigit head ->
-                parseMoveNumber (head :: digits) tail
-            | '.' :: w :: tail when isWhitespaceOrNewLine w ->
-                if List.isEmpty digits then NoMatch
-                else Match (NumberDot (digitsToInt digits), tail)
+            | '\r' :: '\n' :: tail
+            | '\r' :: tail
+            | '\n' :: tail -> Match (NewLine, tail)
             | _ -> NoMatch
 
-        parseMoveNumber []
-
-    let parseLiteral startCh endCh chars =
-        match chars with
-        | head :: tail when head = startCh ->
+        let parseText chars =
             let sb = new StringBuilder()
             let rec build chars =
                 match chars with
-                | head :: tail ->
-                    if head = endCh then
-                        Match (sb.ToString(), tail)
-                    else
-                        sb.Append(head) |> ignore
-                        build tail
-                | [] -> BadMatch "end of literal not found"
-            build tail
-        | _ -> NoMatch
+                | head :: tail when not (isWhitespaceOrNewLine head) ->
+                    sb.Append(head) |> ignore
+                    build tail
+                | tail ->
+                    if sb.Length = 0 then NoMatch
+                    else Match (Text (sb.ToString()), tail)
+            build chars
 
-    let parseQuotedLiteral chars =
-        match parseLiteral '"' '"' chars with
-        | Match (result, tail) -> Match (QuotedLiteral result, tail)
-        | BadMatch err -> BadMatch err
-        | NoMatch -> NoMatch
+        let parseMoveNumber =
+            let digitsToInt digits =
+                let charToDigit ch = (int ch) - (int '0')
+                let rec digitsToInt num digits =
+                    match digits with
+                    | head :: tail -> digitsToInt ((num * 10) + charToDigit head) tail
+                    | [] -> num
+                digitsToInt 0 (List.rev digits)
 
-    let parseBracedLiteral chars =
-        match parseLiteral '{' '}' chars with
-        | Match (result, tail) -> Match (BracedLiteral result, tail)
-        | BadMatch err -> BadMatch err
-        | NoMatch -> NoMatch
-
-    let (<|>) a b =
-        let innerParser chars =
-            match a chars with
-            | Match (result, tail) -> Match (result, tail)
-            | BadMatch err -> BadMatch err
-            | NoMatch -> b chars
-        innerParser
-
-    let choice parsers =
-        List.reduce (<|>) parsers
-
-    let parseChar ch token chars =
-        match chars with
-        | head :: tail when head = ch -> Match (token, tail)
-        | _ -> NoMatch
-
-    let rec parseToken chars =
-        match chars |> (parseNewLine <|> parseWhitespace) with
-        | Match (_, tail) -> parseToken tail
-        | NoMatch ->
-            choice [
-                parseChar '[' OpenTag
-                parseChar ']' CloseTag
-                parseQuotedLiteral
-                parseBracedLiteral
-                parseMoveNumber
-                parseText] chars
-        | BadMatch err -> BadMatch err
-
-    let parseTags chars =
-        let rec parseTags tags chars =
-            let parseTag chars =
-                match parseToken chars with
-                | Match (OpenTag, chars) ->
-                    match parseToken chars with
-                    | Match (Text key, chars) ->
-                        match parseToken chars with
-                        | Match (QuotedLiteral value, chars) ->
-                            match parseToken chars with
-                            | Match (CloseTag, chars) ->
-                                Match ((key, value), chars)
-                            | BadMatch err -> BadMatch err
-                            | _ -> BadMatch "expected tag close"
-                        | BadMatch err -> BadMatch err
-                        | _ -> BadMatch "expected tag value"
-                    | BadMatch err -> BadMatch err
-                    | _ -> BadMatch "expected tag name"
-                | BadMatch err -> BadMatch err
+            let rec parseMoveNumber digits chars =
+                match chars with
+                | head :: tail when isDigit head ->
+                    parseMoveNumber (head :: digits) tail
+                | '.' :: w :: tail when isWhitespaceOrNewLine w ->
+                    if List.isEmpty digits then NoMatch
+                    else Match (NumberDot (digitsToInt digits), tail)
                 | _ -> NoMatch
-            match parseTag chars with
-            | Match (tag, tail) -> parseTags (tag :: tags) tail
+
+            parseMoveNumber []
+
+        let parseLiteral startCh endCh chars =
+            match chars with
+            | head :: tail when head = startCh ->
+                let sb = new StringBuilder()
+                let rec build chars =
+                    match chars with
+                    | head :: tail ->
+                        if head = endCh then
+                            Match (sb.ToString(), tail)
+                        else
+                            sb.Append(head) |> ignore
+                            build tail
+                    | [] -> BadMatch "end of literal not found"
+                build tail
+            | _ -> NoMatch
+
+        let parseQuotedLiteral chars =
+            match parseLiteral '"' '"' chars with
+            | Match (result, tail) -> Match (QuotedLiteral result, tail)
             | BadMatch err -> BadMatch err
-            | NoMatch -> Match(tags, chars)
-        parseTags [] chars
+            | NoMatch -> NoMatch
 
-    let parseElements chars =
-        let rec parseMoves elements chars =
-            match parseToken chars with
-            | Match (BracedLiteral text, tail) ->
-                parseMoves (Comment text :: elements) tail
-            | Match (NumberDot n, tail) ->
-                parseMoves (MoveNumber n :: elements) tail
-            | Match (Text text, tail) ->
-                parseMoves (Notation text :: elements) tail
+        let parseBracedLiteral chars =
+            match parseLiteral '{' '}' chars with
+            | Match (result, tail) -> Match (BracedLiteral result, tail)
             | BadMatch err -> BadMatch err
-            | NoMatch -> Match (List.rev elements, chars)
-            | _ -> BadMatch "Unexpected token"
-        parseMoves [] chars
+            | NoMatch -> NoMatch
 
-    let parsePgn chars =
-        match parseTags chars with
-        | Match (tags, chars) ->
-            match parseElements chars with
-            | Match (elements, chars) ->
-                let pgn = { tags = tags; elements = elements }
-                Match (pgn, chars)
+        let (<|>) a b =
+            let innerParser chars =
+                match a chars with
+                | Match (result, tail) -> Match (result, tail)
+                | BadMatch err -> BadMatch err
+                | NoMatch -> b chars
+            innerParser
+
+        let choice parsers =
+            List.reduce (<|>) parsers
+
+        let parseChar ch token chars =
+            match chars with
+            | head :: tail when head = ch -> Match (token, tail)
+            | _ -> NoMatch
+
+        let rec parseToken chars =
+            match chars |> (parseNewLine <|> parseWhitespace) with
+            | Match (_, tail) -> parseToken tail
+            | NoMatch ->
+                choice [
+                    parseChar '[' OpenTag
+                    parseChar ']' CloseTag
+                    parseQuotedLiteral
+                    parseBracedLiteral
+                    parseMoveNumber
+                    parseText] chars
             | BadMatch err -> BadMatch err
-            | NoMatch -> BadMatch "No moves"
-        | BadMatch err -> BadMatch err
-        | NoMatch -> NoMatch
 
-    let chars = pgn.ToCharArray() |> Array.toList
-    match parsePgn chars with
-    | Match (pgn, _) -> Ok pgn
-    | BadMatch err -> Error err
-    | NoMatch -> Error "Empty PGN"
+        let parseTags chars =
+            let rec parseTags tags chars =
+                let parseTag chars =
+                    match parseToken chars with
+                    | Match (OpenTag, chars) ->
+                        match parseToken chars with
+                        | Match (Text key, chars) ->
+                            match parseToken chars with
+                            | Match (QuotedLiteral value, chars) ->
+                                match parseToken chars with
+                                | Match (CloseTag, chars) ->
+                                    Match ((key, value), chars)
+                                | BadMatch err -> BadMatch err
+                                | _ -> BadMatch "expected tag close"
+                            | BadMatch err -> BadMatch err
+                            | _ -> BadMatch "expected tag value"
+                        | BadMatch err -> BadMatch err
+                        | _ -> BadMatch "expected tag name"
+                    | BadMatch err -> BadMatch err
+                    | _ -> NoMatch
+                match parseTag chars with
+                | Match (tag, tail) -> parseTags (tag :: tags) tail
+                | BadMatch err -> BadMatch err
+                | NoMatch -> Match(tags, chars)
+            parseTags [] chars
 
-module Pgn =
+        let parseElements chars =
+            let rec parseMoves elements chars =
+                match parseToken chars with
+                | Match (BracedLiteral text, tail) ->
+                    parseMoves (Comment text :: elements) tail
+                | Match (NumberDot n, tail) ->
+                    parseMoves (MoveNumber n :: elements) tail
+                | Match (Text text, tail) ->
+                    parseMoves (Notation text :: elements) tail
+                | BadMatch err -> BadMatch err
+                | NoMatch -> Match (List.rev elements, chars)
+                | _ -> BadMatch "Unexpected token"
+            parseMoves [] chars
+
+        let parsePgn chars =
+            match parseTags chars with
+            | Match (tags, chars) ->
+                match parseElements chars with
+                | Match (elements, chars) ->
+                    let pgn = { tags = tags; elements = elements }
+                    Match (pgn, chars)
+                | BadMatch err -> BadMatch err
+                | NoMatch -> BadMatch "No moves"
+            | BadMatch err -> BadMatch err
+            | NoMatch -> NoMatch
+
+        let chars = pgn.ToCharArray() |> Array.toList
+        match parsePgn chars with
+        | Match (pgn, _) -> Ok pgn
+        | BadMatch err -> Error err
+        | NoMatch -> Error "Empty PGN"
+
+    let getTag (key: string) (pgn: Pgn): string option =
+        let kvp =
+            pgn.tags
+            |> List.tryFind (fun (k, _) -> k = key)
+        match kvp with
+        | Some (_, value) -> Some value
+        | None -> None
+
     let getMoves (pgn: Pgn): MoveDescriptor list option =
         let getNotation el =
             match el with
