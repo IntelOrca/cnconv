@@ -41,7 +41,7 @@ module MoveDescriptor =
     let pieceTakesPiece a b =
         MoveDescriptor.Capture (MoveDescriptorEntity.fromPiece a, MoveDescriptorEntity.fromPiece b)
 
-let parseNotation (kind: NotationKind) (s: string): MoveDescriptor option =
+let parseNotation (kind: NotationKind) (colour: Colour) (s: string): MoveDescriptor option =
     // Parse helpers:
     let (|Castle|_|) = function
         | ['O'; '-'; 'O'] -> Some CastleKind.KingSide
@@ -59,16 +59,30 @@ let parseNotation (kind: NotationKind) (s: string): MoveDescriptor option =
         | 'h' -> Some File.KingRook
         | _ -> None
 
-    let (|Rank|_|) = function
-        | '1' -> Some R1
-        | '2' -> Some R2
-        | '3' -> Some R3
-        | '4' -> Some R4
-        | '5' -> Some R5
-        | '6' -> Some R6
-        | '7' -> Some R7
-        | '8' -> Some R8
-        | _ -> None
+    let (|Rank|_|) c =
+        match colour with
+        | White ->
+            match c with
+            | '1' -> Some R1
+            | '2' -> Some R2
+            | '3' -> Some R3
+            | '4' -> Some R4
+            | '5' -> Some R5
+            | '6' -> Some R6
+            | '7' -> Some R7
+            | '8' -> Some R8
+            | _ -> None
+        | Black ->
+            match c with
+            | '1' -> Some R8
+            | '2' -> Some R7
+            | '3' -> Some R6
+            | '4' -> Some R5
+            | '5' -> Some R4
+            | '6' -> Some R3
+            | '7' -> Some R2
+            | '8' -> Some R1
+            | _ -> None
 
     let (|Piece|_|) = function
         | 'P' -> Some Piece.Pawn
@@ -94,6 +108,10 @@ let parseNotation (kind: NotationKind) (s: string): MoveDescriptor option =
                 Some ({ piece = Some Piece.Rook
                         file = MoveDescriptorFile.Specifc QueenRook
                         rank = None }, tail)
+            | 'Q' :: 'N' :: tail ->
+                Some ({ piece = Some Piece.Knight
+                        file = MoveDescriptorFile.Specifc QueenKnight
+                        rank = None }, tail)
             | Piece piece :: tail -> Some (MoveDescriptorEntity.fromPiece piece, tail)
             | _ -> None
 
@@ -106,6 +124,7 @@ let parseNotation (kind: NotationKind) (s: string): MoveDescriptor option =
             | 'Q' :: 'R' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromLocation (File.QueenRook, r), tail)
             | 'Q' :: 'B' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromLocation (File.QueenBishop, r), tail)
             | 'Q' :: 'N' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromLocation (File.QueenKnight, r), tail)
+            | 'Q' :: 'N' :: 'P' :: tail -> Some ({ piece = Some Piece.Pawn; file = MoveDescriptorFile.Specifc (File.QueenKnight); rank = None }, tail)
             | 'R' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromFileRank (MoveDescriptorFile.AnyRook, r), tail)
             | 'B' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromFileRank (MoveDescriptorFile.AnyBishop, r), tail)
             | 'N' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromFileRank (MoveDescriptorFile.AnyKnight, r), tail)
@@ -175,6 +194,12 @@ let parseNotation (kind: NotationKind) (s: string): MoveDescriptor option =
     match kind with
     | Classic -> parseClassic chars
     | Modern -> parseModern chars
+
+let parseClassicNotation colour s =
+    parseNotation Classic colour s
+
+let parseModernNotation s =
+    parseNotation Modern White s
 
 type ParseResult<'TResult> =
     | Match of 'TResult * char list
@@ -352,7 +377,7 @@ module Pgn =
                 NoMatch
             else
                 let trimmed = text.TrimEnd('#', '+', '!', '?')
-                match parseNotation Modern trimmed with
+                match parseModernNotation trimmed with
                 | Some md -> Match (Notation md, [])
                 | None -> BadMatch ("Unable to parse move notation: " + text)
 

@@ -52,19 +52,19 @@ type NotationTests() =
         assertA entityA
         assertB entityB
 
-    let parseClassic = parseNotation Classic
-    let parseModern = parseNotation Modern
+    let parseClassic = parseClassicNotation White
+    let parseModern = parseModernNotation
 
     [<Fact>]
     let ``O-O`` () =
         for kind in [Classic; Modern] do
-            parseNotation kind "O-O"
+            parseNotation kind White "O-O"
             |> assertCastle CastleKind.KingSide
 
     [<Fact>]
     let ``O-O-O`` () =
         for kind in [Classic; Modern] do
-            parseNotation kind "O-O-O"
+            parseNotation kind White "O-O-O"
             |> assertCastle CastleKind.QueenSide
 
     // Modern
