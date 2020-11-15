@@ -1,8 +1,9 @@
-event Cheatles vs. Crowes (Snr. House Chess)
-date 7.2.72
-white G. John
-black M. Uden
-board 1
+Event Cheatles vs. Crowes (Snr. House Chess)
+Date 1972.2.7
+White G. John
+Black M. Uden
+Board 1
+Result 1-0
 
 P-Q4    N-KB3
 P-QB4   P-KN3

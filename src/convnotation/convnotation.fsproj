@@ -10,7 +10,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="IntelOrca.Chess\IntelOrca.Chess.fsproj" />
+    <ProjectReference Include="..\IntelOrca.Chess\IntelOrca.Chess.fsproj" />
   </ItemGroup>
 
 </Project>

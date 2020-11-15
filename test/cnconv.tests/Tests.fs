@@ -28,7 +28,7 @@ type GameStateTests() =
         state
 
     let assertPgn (expected: string) (state: GameState) =
-        Assert.Equal(expected, state |> getPgn)
+        Assert.Equal(expected, state |> Pgn.fromGameState)
         state
 
     [<Fact>]

@@ -50,6 +50,36 @@ type MoveDescriptor =
     | Castle of CastleKind
 
 //
+// --------- Game State --------- 
+//
+
+type PieceState = {
+    colour: Colour
+    piece: Piece
+    location: Location
+}
+
+type PossibleMove =
+    | AtoB of Location * Location
+    | Castle of CastleKind
+
+type CastleAvailability = {
+    whiteKing: bool
+    whiteQueen: bool
+    blackKing: bool
+    blackQueen: bool
+}
+
+type GameState = {
+    previous: (GameState * PossibleMove) option
+    moveNumber: int
+    halfMoveClock: int
+    toMove: Colour
+    pieces: PieceState list
+    castleAvailability: CastleAvailability
+}
+
+//
 // --------- PGN --------- 
 //
 
