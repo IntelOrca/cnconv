@@ -366,7 +366,7 @@ let doMove (move: PossibleMove) (state: GameState): GameState option =
                castleAvailability = castleAvailability }
 
 /// Convert a move descriptor to a fully qualified move based on the given game state.
-let deriveMove (move: MoveDescriptor) (state: GameState): PossibleMove option =
+let deriveMoves (move: MoveDescriptor) (state: GameState): PossibleMove list =
     let possibleMoves = getPossibleMoves state
 
     let filterMoves filters =
@@ -375,49 +375,52 @@ let deriveMove (move: MoveDescriptor) (state: GameState): PossibleMove option =
             |> List.where (fun move -> filter move)
         List.fold folder possibleMoves filters
 
-    let result =
-        match move with
-        | Move (a, b)
-        | Capture (a, b) ->
-            let sourcePieceFilter m =
-                match a.piece with
-                | Some piece -> Some piece = getPiece state m
-                | None -> true
-            let fileFilter pmf mdf =
-                match mdf with
-                | MoveDescriptorFile.Specifc file -> file = pmf
-                | MoveDescriptorFile.AnyKnight -> pmf = File.KingKnight || pmf = File.QueenKnight
-                | MoveDescriptorFile.AnyBishop -> pmf = File.KingBishop || pmf = File.QueenBishop
-                | MoveDescriptorFile.AnyRook -> pmf = File.KingRook || pmf = File.QueenRook
-                | _ -> true
-            let sourceFileFilter m = fileFilter (getSource m |> fst) a.file
+    match move with
+    | Move (a, b)
+    | Capture (a, b) ->
+        let sourcePieceFilter m =
+            match a.piece with
+            | Some piece -> Some piece = getPiece state m
+            | None -> true
+        let fileFilter pmf mdf =
+            match mdf with
+            | MoveDescriptorFile.Specifc file -> file = pmf
+            | MoveDescriptorFile.AnyKnight -> pmf = File.KingKnight || pmf = File.QueenKnight
+            | MoveDescriptorFile.AnyBishop -> pmf = File.KingBishop || pmf = File.QueenBishop
+            | MoveDescriptorFile.AnyRook -> pmf = File.KingRook || pmf = File.QueenRook
+            | _ -> true
+        let sourceFileFilter m = fileFilter (getSource m |> fst) a.file
 
-            let destinationPieceFilter m =
-                match b.piece with
-                | Some piece ->
-                    match getPieceAt (getDestination m) state.pieces with
-                    | Some ps -> ps.piece = piece
-                    | None -> false
-                | None -> true
-            let destinationFileFilter m = fileFilter (getDestination m |> fst) b.file
-            let destinationRankFilter m =
-                match b.rank with
-                | Some rank -> rank = (getDestination m |> snd)
-                | None -> true
+        let destinationPieceFilter m =
+            match b.piece with
+            | Some piece ->
+                match getPieceAt (getDestination m) state.pieces with
+                | Some ps -> ps.piece = piece
+                | None -> false
+            | None -> true
+        let destinationFileFilter m = fileFilter (getDestination m |> fst) b.file
+        let destinationRankFilter m =
+            match b.rank with
+            | Some rank -> rank = (getDestination m |> snd)
+            | None -> true
 
-            let remainingMoves =
-                let filters = [sourcePieceFilter; sourceFileFilter;
-                               destinationPieceFilter; destinationFileFilter; destinationRankFilter]
-                filterMoves filters
+        let filters = [sourcePieceFilter; sourceFileFilter;
+                        destinationPieceFilter; destinationFileFilter; destinationRankFilter]
+        filterMoves filters
+    | MoveDescriptor.Castle kind ->
+        [Castle kind]
 
-            if List.length remainingMoves <> 1 then
-                printfn "%s" "wtf"
+let deriveMove move state =
+    deriveMoves move state
+    |> List.tryExactlyOne
 
-            remainingMoves
-            |> List.tryExactlyOne
-        | MoveDescriptor.Castle kind ->
-            Some (Castle kind)
-    result
+let rec deriveMostLikelyState (moves: MoveDescriptor list) (state: GameState) =
+    match moves with
+    | move :: tail ->
+        deriveMoves move state
+        |> List.choose (fun m -> doMove m state)
+        |> List.collect (deriveMostLikelyState tail)
+    | [] -> [state]
 
 let doMoves (moves: MoveDescriptor list) (state: GameState) =
     let fn state move =
