@@ -1,8 +1,8 @@
-event Ravensbourne v. Bexley (Friendly Jnr.)
-date 17.10.64
-white G. John
-black M. Sanders
-board 2
+Event Ravensbourne v. Bexley (Friendly Jnr.)
+Date 64.10.17
+White G. John
+Black M. Sanders
+Result 1-0
 
 P-Q4    P-Q4
 P-QB4   P-QB3

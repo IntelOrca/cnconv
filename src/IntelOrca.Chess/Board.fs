@@ -72,6 +72,91 @@ let getFen (state: GameState): string =
     seq { placement; toMove; castlingAbility; enpassant; halfmove; fullmove }
     |> String.concat " "
 
+let fromFen (fen: string): GameState option =
+    let parsePieces (s: string): PieceState list option =
+        let parseRow (s: string) rank =
+            let (|Digit|_|) c =
+                if System.Char.IsDigit(c) then Some (int c - int '0')
+                else None
+
+            let parsePieceChar = function
+                | 'P' -> Some (White, Piece.Pawn)
+                | 'N' -> Some (White, Piece.Knight)
+                | 'B' -> Some (White, Piece.Bishop)
+                | 'R' -> Some (White, Piece.Rook)
+                | 'Q' -> Some (White, Piece.Queen)
+                | 'K' -> Some (White, Piece.King)
+                | 'p' -> Some (Black, Piece.Pawn)
+                | 'n' -> Some (Black, Piece.Knight)
+                | 'b' -> Some (Black, Piece.Bishop)
+                | 'r' -> Some (Black, Piece.Rook)
+                | 'q' -> Some (Black, Piece.Queen)
+                | 'k' -> Some (Black, Piece.King)
+                | _ -> None
+
+            let rec parseRow pieces fileIndex chars =
+                match indexToFile fileIndex with
+                | Some file ->
+                    match chars with
+                    | Digit d :: tail ->
+                        parseRow pieces (fileIndex + d) tail
+                    | head :: tail ->
+                        match parsePieceChar head with
+                        | Some (colour, piece) ->
+                            let ps = 
+                                { colour = colour
+                                  piece = piece
+                                  location = (file, rank) }
+                            parseRow (ps :: pieces) (fileIndex + 1) tail
+                        | None -> None
+                    | [] -> Some pieces
+                | None -> Some pieces
+
+            parseRow [] 0 (s.ToCharArray() |> Array.toList)
+
+        match s.Split('/') |> Array.toList with
+        | rows when List.length rows = 8 ->
+            let pieces =
+                rows
+                |> List.mapi (fun i r -> parseRow r (indexToRank (7 - i) |> Option.get))
+                |> List.choose id
+            match pieces with
+            | pieces when List.length pieces = 8 -> Some (pieces |> List.collect id)
+            | _ -> None
+        | _ -> None
+
+    let parseToMove = function
+        | "w" -> Some White
+        | "b" -> Some Black
+        | _ -> None
+
+    let parseCastleAvailability (s: string) =
+        Some {  whiteKing = s.Contains("K")
+                whiteQueen = s.Contains("Q")
+                blackKing = s.Contains("k")
+                blackQueen = s.Contains("q") }
+
+    let parseInt s =
+        let mutable r = byte 0
+        if System.Byte.TryParse(s, &r) then Some (int r)
+        else None
+
+    let parts =
+        fen.Split([|' '|], System.StringSplitOptions.RemoveEmptyEntries)
+        |> Array.toList
+    match parts with
+    | board :: toMove :: castleAvailability :: enPassant :: halfMove :: fullMove :: _ ->
+        match (parsePieces board, parseToMove toMove, parseCastleAvailability castleAvailability, parseInt halfMove, parseInt fullMove) with
+        | (Some pieces, Some toMove, Some castleAvailability, Some halfMove, Some fullMove) ->
+            Some  { previous = None
+                    moveNumber = fullMove
+                    halfMoveClock = halfMove
+                    toMove = toMove
+                    pieces = pieces
+                    castleAvailability = castleAvailability }
+        | _ -> None
+    | _ -> None
+
 let getNotation (move: PossibleMove) =
     match move with
     | AtoB (a, b) -> (getNotationForLocation a) + (getNotationForLocation b)
@@ -388,11 +473,24 @@ let deriveMove move state =
     |> List.tryExactlyOne
 
 let rec deriveMostLikelyState (moves: MoveDescriptor list) (state: GameState) =
+    let getGameStateLength state =
+        let rec getGameStateLength len state =
+            match state with
+            | Some (state, _) -> getGameStateLength (len + 1) state.previous
+            | None -> len
+        getGameStateLength 0 state.previous
     match moves with
     | move :: tail ->
-        deriveMoves move state
-        |> List.choose (fun m -> doMove m state)
-        |> List.collect (deriveMostLikelyState tail)
+        let result =
+            deriveMoves move state
+            |> List.choose (fun m -> doMove m state)
+            |> List.collect (deriveMostLikelyState tail)
+        // match result with
+        // | [] -> [state]
+        // | other -> other
+        match result with
+        | [] -> [state]
+        | other -> [List.maxBy getGameStateLength other]
     | [] -> [state]
 
 let doMoves (moves: MoveDescriptor list) (state: GameState) =

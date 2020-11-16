@@ -85,9 +85,13 @@ let main2 (argv: string[]) =
             // printfn "Fen: %s" (getFen single)
             // printfn "Pgn:\n%s" (Pgn.fromTagsAndGameState pgn.tags single)
             printfn "%s" (Pgn.fromTagsAndGameState pgn.tags single)
+            printfn "\nFen:\n%s" (getFen single)
             0
         | multiple ->
             printfn "%s" "Multiple end states found!"
+            for state in multiple do
+                printfn "  Pgn:\n%s" (Pgn.fromGameState state)
+                printfn "  Fen:\n%s" (getFen state)
             1
     | Error e ->
         printfn "%s" e
@@ -95,4 +99,35 @@ let main2 (argv: string[]) =
 
 [<EntryPoint>]
 let main argv =
-    main2 argv
+    match argv |> Array.toList with
+    | "derive" :: tail ->
+        match tail with
+        | fen :: move :: _ ->
+            match fromFen fen with
+            | Some state ->
+                printfn "FEN: %s" (getFen state)
+                match parseClassicNotation state.toMove move with
+                | Some md ->
+                    let possibleMoves =
+                        deriveMoves md state
+                        |> List.mapi (fun i x -> (i, x))
+                    for (i, move) in possibleMoves do
+                        match doMove move state with
+                        | Some state ->
+                            let (prevState, prevMove) = state.previous |> Option.get
+                            let move = Pgn.getMoveNotation prevMove prevState
+                            let fen = getFen state
+                            printfn "  %s -> %s" move fen
+                        | None -> printfn "  invalid"
+                    0
+                | None ->
+                    printfn "Invalid classic move notation"
+                    1
+            | None ->
+                printfn "Invalid FEN"
+                1
+        | _ ->
+            printfn "usage: derive <fen> <move>"
+            1
+    | _ ->
+        main2 argv

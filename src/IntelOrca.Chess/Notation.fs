@@ -105,13 +105,17 @@ let parseNotation (kind: NotationKind) (colour: Colour) (s: string): MoveDescrip
     // Parser:
     let parseClassic chars =
         let (|LeftComponent|_|) = function
+            | 'K' :: 'R' :: tail ->
+                Some ({ piece = Some Piece.Rook
+                        file = MoveDescriptorFile.Any
+                        rank = None }, tail)
             | 'Q' :: 'R' :: tail ->
                 Some ({ piece = Some Piece.Rook
-                        file = MoveDescriptorFile.Specifc QueenRook
+                        file = MoveDescriptorFile.Any
                         rank = None }, tail)
             | 'Q' :: 'N' :: tail ->
                 Some ({ piece = Some Piece.Knight
-                        file = MoveDescriptorFile.Specifc QueenKnight
+                        file = MoveDescriptorFile.Any
                         rank = None }, tail)
             | Piece piece :: tail -> Some (MoveDescriptorEntity.fromPiece piece, tail)
             | _ -> None
@@ -435,7 +439,7 @@ module Pgn =
         pgn.elements
         |> List.choose getNotation
 
-    let fromGameState (state: GameState): string =
+    let getMoveNotation (move: PossibleMove) (state: GameState) =
         let getMoveSourcePieceKind (move: PossibleMove) (state: GameState) =
             match move with
             | AtoB (src, dst) ->
@@ -454,61 +458,61 @@ module Pgn =
             | AtoB (_, dst) -> dst
             | _ -> (File.KingRook, R1)
     
-        let getMoveNotation (move: PossibleMove) (state: GameState) =
-            match move with
-            | Castle CastleKind.KingSide -> "O-O"
-            | Castle CastleKind.QueenSide -> "O-O-O"
-            | AtoB (srcLocation, dstLocation) ->
-                let srcPiece = getMoveSourcePieceKind move state
-                let isCapture =
-                    getPieceAt dstLocation state.pieces
-                    |> Option.isSome
-                let allPossibleMoves =
-                    state
-                    |> getPossibleMoves
-                    |> List.where (fun x -> getMoveSourcePieceKind x state = srcPiece)
-                    |> List.where (fun x -> getMoveTargetLocation x state = dstLocation)
+        match move with
+        | Castle CastleKind.KingSide -> "O-O"
+        | Castle CastleKind.QueenSide -> "O-O-O"
+        | AtoB (srcLocation, dstLocation) ->
+            let srcPiece = getMoveSourcePieceKind move state
+            let isCapture =
+                getPieceAt dstLocation state.pieces
+                |> Option.isSome
+            let allPossibleMoves =
+                state
+                |> getPossibleMoves
+                |> List.where (fun x -> getMoveSourcePieceKind x state = srcPiece)
+                |> List.where (fun x -> getMoveTargetLocation x state = dstLocation)
     
-                let getPieceNotation = function
-                    | Piece.Pawn -> ""
-                    | Piece.Knight -> "N"
-                    | Piece.Bishop -> "B"
-                    | Piece.Rook -> "R"
-                    | Piece.Queen -> "Q"
-                    | Piece.King -> "K"
+            let getPieceNotation = function
+                | Piece.Pawn -> ""
+                | Piece.Knight -> "N"
+                | Piece.Bishop -> "B"
+                | Piece.Rook -> "R"
+                | Piece.Queen -> "Q"
+                | Piece.King -> "K"
     
-                let (requiresFile, requiresRank) =
-                    if List.length allPossibleMoves > 1 then
-                        let files =
-                            allPossibleMoves
-                            |> List.where (fun x -> fst srcLocation = fst (getSource x))
-                        if List.length files > 1 then
-                            (true, true)
-                        else
-                            (true, false)
+            let (requiresFile, requiresRank) =
+                if List.length allPossibleMoves > 1 then
+                    let files =
+                        allPossibleMoves
+                        |> List.where (fun x -> fst srcLocation = fst (getSource x))
+                    if List.length files > 1 then
+                        (true, true)
                     else
-                        let isPawn = srcPiece = Some Piece.Pawn
-                        (isCapture && isPawn, false)
-    
-                let szSrcPiece =
-                    match srcPiece with
-                    | Some piece -> getPieceNotation piece
-                    | None -> ""
-                let szSrcFile =
-                    if requiresFile then getNotationForFile (fst srcLocation)
-                    else ""
-                let szSrcRank =
-                    if requiresRank then getNotationForRank (snd srcLocation)
-                    else ""
-                let szDstLocation = getNotationForLocation dstLocation
-    
-                if isCapture then
-                    [szSrcPiece; szSrcFile; szSrcRank; "x"; szDstLocation]
-                    |> String.concat ""
+                        (true, false)
                 else
-                    [szSrcPiece; szSrcFile; szSrcRank; szDstLocation]
-                    |> String.concat ""
+                    let isPawn = srcPiece = Some Piece.Pawn
+                    (isCapture && isPawn, false)
     
+            let szSrcPiece =
+                match srcPiece with
+                | Some piece -> getPieceNotation piece
+                | None -> ""
+            let szSrcFile =
+                if requiresFile then getNotationForFile (fst srcLocation)
+                else ""
+            let szSrcRank =
+                if requiresRank then getNotationForRank (snd srcLocation)
+                else ""
+            let szDstLocation = getNotationForLocation dstLocation
+    
+            if isCapture then
+                [szSrcPiece; szSrcFile; szSrcRank; "x"; szDstLocation]
+                |> String.concat ""
+            else
+                [szSrcPiece; szSrcFile; szSrcRank; szDstLocation]
+                |> String.concat ""
+
+    let fromGameState (state: GameState): string =
         let moves = 
             let rec getMoves moves state =
                 match state.previous with
