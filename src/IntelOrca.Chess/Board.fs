@@ -473,24 +473,11 @@ let deriveMove move state =
     |> List.tryExactlyOne
 
 let rec deriveMostLikelyState (moves: MoveDescriptor list) (state: GameState) =
-    let getGameStateLength state =
-        let rec getGameStateLength len state =
-            match state with
-            | Some (state, _) -> getGameStateLength (len + 1) state.previous
-            | None -> len
-        getGameStateLength 0 state.previous
     match moves with
     | move :: tail ->
-        let result =
-            deriveMoves move state
-            |> List.choose (fun m -> doMove m state)
-            |> List.collect (deriveMostLikelyState tail)
-        // match result with
-        // | [] -> [state]
-        // | other -> other
-        match result with
-        | [] -> [state]
-        | other -> [List.maxBy getGameStateLength other]
+        deriveMoves move state
+        |> List.choose (fun m -> doMove m state)
+        |> List.collect (deriveMostLikelyState tail)
     | [] -> [state]
 
 let doMoves (moves: MoveDescriptor list) (state: GameState) =

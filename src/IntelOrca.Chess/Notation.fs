@@ -121,6 +121,10 @@ let parseNotation (kind: NotationKind) (colour: Colour) (s: string): MoveDescrip
             | _ -> None
 
         let (|RightComponent|_|) = function
+            | 'R' :: 'P' :: tail ->
+                Some ({ piece = Some Piece.Pawn
+                        file = MoveDescriptorFile.AnyRook
+                        rank = None }, tail)
             | 'K' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromLocation (File.King, r), tail)
             | 'K' :: 'R' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromLocation (File.KingRook, r), tail)
             | 'K' :: 'B' :: (Rank r) :: tail -> Some (MoveDescriptorEntity.fromLocation (File.KingBishop, r), tail)

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "convnotation": {
+      "commandName": "Project",
+      "commandLineArgs": "\"C:\\Users\\Ted\\Documents\\GitHub\\cnconv\\games\\game6.txt\""
+    }
+  }
+}

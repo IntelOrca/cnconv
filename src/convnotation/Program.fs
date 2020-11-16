@@ -69,6 +69,44 @@ let parseGameFromCommandLine (argv: string[]) =
     File.ReadAllText(path)
     |> parseGame
 
+type GameStateNode = {
+    state: GameState
+    children: GameStateNode list
+}
+
+let gameStateTree (leaves: GameState list) =
+    let getParent (child: GameState) =
+        match child.previous with
+        | Some (parent, _) -> Some parent
+        | None -> None
+
+    let rec getNode (child: GameState) (map: Map<GameState, GameStateNode>) =
+        let addNode state map =
+            let node = { state = state; children = [] }
+            let map = Map.add child node map
+            (map, node)
+
+        match Map.tryFind child map with
+        | Some node -> (map, node)
+        | None ->
+            match getParent child with
+            | Some parent ->
+                let (map, parentNode) = getNode parent map
+                let (map, node) = addNode child map
+                let map =
+                    map
+                    |> Map.add parentNode.state { parentNode with children = node :: parentNode.children }
+                (map, node)
+            | None ->
+                addNode child map
+
+    let mutable map = Map.empty
+    for leaf in leaves do
+        map <- getNode leaf map |> fst
+
+    map
+    |> Map.tryPick (fun x y -> if Option.isNone x.previous then Some y else None)
+
 let main2 (argv: string[]) =
     match parseGameFromCommandLine argv with
     | Ok pgn ->
@@ -88,6 +126,7 @@ let main2 (argv: string[]) =
             printfn "\nFen:\n%s" (getFen single)
             0
         | multiple ->
+            let root = gameStateTree multiple
             printfn "%s" "Multiple end states found!"
             for state in multiple do
                 printfn "  Pgn:\n%s" (Pgn.fromGameState state)
