@@ -1,0 +1,44 @@
+Event Kent League Jnr. Roan vs. Ravensbourne
+Date 69.2.5
+White M. Wiggins
+Black G. John
+Result 1-0
+
+P-K4        P-K4
+N-KB3       N-QB3
+N-B3        N-B3
+B-B4        P-Q3
+P-KR3       B-K2
+P-Q3        O-O
+B-K3        P-QN3
+Q-Q2        QN-R4
+B-N3        NxB
+BPxN        B-N2
+Q-B2        R-B1
+R-Q1        P-B4
+O-O         P-QR3
+P-QR3       R-K1
+KR-K1       N-R4
+R-R1        N-B5
+N-K2        NxN
+RxN         B-R5
+R-KB1       Q-B3
+Q-Q2        P-R3
+R-B1        R-K3
+R-K1        P-Q4
+Q-B2        P-Q5
+B-Q2        B-N4
+R-B1        BxB
+QxB         Q-N3
+K-R1        R-B3
+P-QN4       B-B1
+P-QR4       R-B3
+NxP         Q-R4
+NxR         RxN
+Q-B4        B-K3
+PxP         K-R2
+P-QN4       B-K3
+PxP         K-R2
+P-QN4       BxP
+Q-R2        R-N3
+QxB         Q-K4

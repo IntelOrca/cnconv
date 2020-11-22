@@ -19,6 +19,7 @@ let parseGame (s: string) =
 
     let rec readGameLines (lines: string list) =
         match lines with
+        | head :: tail when System.String.IsNullOrWhiteSpace(head) -> readGameLines tail
         | head :: tail ->
             let tokens = head.Split([|' '; '\t'|], StringSplitOptions.RemoveEmptyEntries)
             if tokens.Length = 1 then

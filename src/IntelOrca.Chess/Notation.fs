@@ -105,15 +105,15 @@ let parseNotation (kind: NotationKind) (colour: Colour) (s: string): MoveDescrip
     // Parser:
     let parseClassic chars =
         let (|LeftComponent|_|) = function
-            | 'K' :: 'R' :: tail ->
+            | _ :: 'P' :: tail ->
+                Some ({ piece = Some Piece.Pawn
+                        file = MoveDescriptorFile.Any
+                        rank = None }, tail)
+            | _ :: 'R' :: tail ->
                 Some ({ piece = Some Piece.Rook
                         file = MoveDescriptorFile.Any
                         rank = None }, tail)
-            | 'Q' :: 'R' :: tail ->
-                Some ({ piece = Some Piece.Rook
-                        file = MoveDescriptorFile.Any
-                        rank = None }, tail)
-            | 'Q' :: 'N' :: tail ->
+            | _ :: 'N' :: tail ->
                 Some ({ piece = Some Piece.Knight
                         file = MoveDescriptorFile.Any
                         rank = None }, tail)
@@ -451,17 +451,17 @@ module Pgn =
                 | Some ps -> Some ps.piece
                 | None -> None
             | _ -> Some Piece.King
-    
+
         let getMoveSourceLocation (move: PossibleMove) (state: GameState) =
             match move with
             | AtoB (src, _) -> src
             | _ -> (File.KingRook, R1)
-    
+
         let getMoveTargetLocation (move: PossibleMove) (state: GameState) =
             match move with
             | AtoB (_, dst) -> dst
             | _ -> (File.KingRook, R1)
-    
+
         match move with
         | Castle CastleKind.KingSide -> "O-O"
         | Castle CastleKind.QueenSide -> "O-O-O"
@@ -475,7 +475,7 @@ module Pgn =
                 |> getPossibleMoves
                 |> List.where (fun x -> getMoveSourcePieceKind x state = srcPiece)
                 |> List.where (fun x -> getMoveTargetLocation x state = dstLocation)
-    
+
             let getPieceNotation = function
                 | Piece.Pawn -> ""
                 | Piece.Knight -> "N"
@@ -483,7 +483,7 @@ module Pgn =
                 | Piece.Rook -> "R"
                 | Piece.Queen -> "Q"
                 | Piece.King -> "K"
-    
+
             let (requiresFile, requiresRank) =
                 if List.length allPossibleMoves > 1 then
                     let files =
@@ -496,7 +496,7 @@ module Pgn =
                 else
                     let isPawn = srcPiece = Some Piece.Pawn
                     (isCapture && isPawn, false)
-    
+
             let szSrcPiece =
                 match srcPiece with
                 | Some piece -> getPieceNotation piece
@@ -508,7 +508,7 @@ module Pgn =
                 if requiresRank then getNotationForRank (snd srcLocation)
                 else ""
             let szDstLocation = getNotationForLocation dstLocation
-    
+
             if isCapture then
                 [szSrcPiece; szSrcFile; szSrcRank; "x"; szDstLocation]
                 |> String.concat ""
@@ -517,13 +517,13 @@ module Pgn =
                 |> String.concat ""
 
     let fromGameState (state: GameState): string =
-        let moves = 
+        let moves =
             let rec getMoves moves state =
                 match state.previous with
                 | Some (prev, move) -> getMoves (getMoveNotation move prev :: moves) prev
                 | None -> moves
             getMoves [] state
-    
+
         moves
         |> List.mapi (
             fun i n ->

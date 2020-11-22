@@ -1,0 +1,43 @@
+Event N.W. Kent vs. Mid. Kent.
+Date 67.3.11
+White G. John
+Black A. Heath
+Result 1/2-1/2
+
+P-Q4        P-Q4
+P-QB4       PxP
+N-QB3       N-KB3
+N-B3        B-B4
+P-K3        P-K3
+BxP         P-B3
+P-QR3       P-KN3
+O-O         B-N2
+R-K1        O-O
+P-QN4       QN-Q2
+B-N2        Q-B2
+P-R3        QR-Q1
+Q-N3        B-R3
+P-N4        BxP
+PxB         NxP
+K-B1        KR-K1
+K-K2        N-N3
+B-Q3        N-Q4
+NxN         KPxN
+K-Q2        NxP
+B-B2        N-K5
+BxN         PxB
+N-N1        Q-N3
+Q-B3        R-K4
+K-B2        R-KN4
+P-Q5        R-N7
+R-K2        RxR
+NxR         K-B1
+Q-R8        K-K2
+Q-B6        K-Q2
+QxKBP       K-B1
+B-B6        QxP
+BxR         QxN
+K-B3        Q-Q6
+K-N2        Q-Q7
+K-N3        Q-Q6
+K-R4        Q-N4
